@@ -56,7 +56,7 @@
             租賃車接送試算與預約 <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">車旅所</span>
           </h1>
           <p class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto px-4 leading-relaxed">
-            提供送機、接機、市區單程與臨時預約。此版本為前端 POC，正式報價邏輯後續應移至 Python 後端。
+            先輸入地點或地址，再從候選清單選擇正確地點。此版本不使用 Google API，也不需要後端。
           </p>
         </div>
 
@@ -86,7 +86,7 @@
           </div>
         </div>
 
-        <div class="w-full bg-slate-800/80 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden">
+        <div class="w-full bg-slate-800/80 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-visible">
           <div class="p-5 sm:p-8">
             <div id="emergencyWarning" class="hidden mb-6 p-4 bg-red-950/40 border-l-4 border-red-500 rounded-r-lg text-xs sm:text-sm text-red-300">
               <div class="flex items-start gap-2">
@@ -102,13 +102,27 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                 <div>
                   <label id="lblSource" class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">出發地址</label>
-                  <input type="text" id="txtSource" placeholder="例：台北市內湖區麗山國中" required autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+                  <div id="sourceAddressControl" class="space-y-2">
+                    <div class="flex gap-2">
+                      <input type="text" id="txtSource" placeholder="例：麗山國中、台北101、台北市內湖區..." autocomplete="off" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+                      <button type="button" id="searchSourceButton" class="shrink-0 px-3 sm:px-4 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-bold text-slate-100 transition-all">搜尋</button>
+                    </div>
+                    <p id="sourceAddressStatus" class="text-xs text-slate-500">請輸入地點或地址後按搜尋，並從候選清單選擇。</p>
+                    <div id="sourceResults" class="hidden bg-slate-950 border border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-64 overflow-y-auto premium-scrollbar"></div>
+                  </div>
                   <select id="airportSource" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all"></select>
                 </div>
                 <div>
                   <label id="lblDest" class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">目的地</label>
-                  <input type="text" id="txtDest" placeholder="例：桃園國際機場、台北101、新竹巨城" autocomplete="off" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
-                  <select id="airportDest" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all"></select>
+                  <div id="destAddressControl" class="space-y-2">
+                    <div class="flex gap-2">
+                      <input type="text" id="txtDest" placeholder="例：麗山國中、台北101、新竹巨城" autocomplete="off" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+                      <button type="button" id="searchDestButton" class="shrink-0 px-3 sm:px-4 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-bold text-slate-100 transition-all">搜尋</button>
+                    </div>
+                    <p id="destAddressStatus" class="text-xs text-slate-500">請輸入地點或地址後按搜尋，並從候選清單選擇。</p>
+                    <div id="destResults" class="hidden bg-slate-950 border border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-64 overflow-y-auto premium-scrollbar"></div>
+                  </div>
+                  <select id="airportDest" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all"></select>
                 </div>
               </div>
 
@@ -147,30 +161,23 @@
                 </div>
               </div>
 
-              <div id="airportAddons" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-                <label class="flex items-center justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800 cursor-pointer">
-                  <span>
-                    <span class="block text-sm sm:text-base font-bold text-slate-100">機場專人舉牌迎賓</span>
-                    <span class="block text-xs sm:text-sm text-slate-400 mt-1">專人引導搭車</span>
-                  </span>
-                  <span class="flex items-center gap-3"><span class="text-sm font-bold text-amber-500">+200</span><input type="checkbox" id="addonSign" class="accent-amber-500" /></span>
+              <div id="airportAddons" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex items-center gap-3 bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" id="addonSign" class="accent-amber-500" />
+                  <span>舉牌服務 +200</span>
                 </label>
-                <label class="flex items-center justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800 cursor-pointer">
-                  <span>
-                    <span class="block text-sm sm:text-base font-bold text-slate-100">兒童安全座椅／增高墊</span>
-                    <span class="block text-xs sm:text-sm text-slate-400 mt-1">需提前告知</span>
-                  </span>
-                  <span class="flex items-center gap-3"><span class="text-sm font-bold text-amber-500">+300</span><input type="checkbox" id="addonSeat" class="accent-amber-500" /></span>
+                <label class="flex items-center gap-3 bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" id="addonSeat" class="accent-amber-500" />
+                  <span>兒童安全座椅 +300</span>
                 </label>
               </div>
 
-              <div>
-                <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">特殊需求與備註</label>
-                <textarea id="notes" rows="2" placeholder="例：需要三聯式發票、攜帶大型行李、需指定停靠點..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"></textarea>
+              <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs sm:text-sm text-amber-100/80 leading-relaxed">
+                目前使用 OpenStreetMap Nominatim 做「按鈕式搜尋」，不做即時 autocomplete。正式商業版建議改成 Google Places + 後端 Google Routes。
               </div>
 
-              <button type="submit" id="quoteButton" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold py-3.5 sm:py-4 rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all text-sm sm:text-lg shadow-lg shadow-amber-600/20 flex items-center justify-center gap-2">
-                <i data-lucide="calculator" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+              <button id="quoteButton" type="submit" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2">
+                <i data-lucide="calculator" class="w-5 h-5"></i>
                 <span>試算車資</span>
               </button>
             </form>
@@ -179,74 +186,49 @@
       </div>
     </section>
 
-    <section id="advantages" class="py-16 sm:py-24 bg-slate-900 border-t border-slate-800">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-12 sm:mb-16">
-          <p class="text-xs font-semibold tracking-widest text-amber-500 uppercase mb-2">Why Choose Us</p>
-          <h2 class="text-2xl sm:text-4xl font-bold text-white">車旅所・三大品質堅持</h2>
-          <div class="w-12 h-1 bg-amber-500 mx-auto mt-4"></div>
+    <section id="advantages" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-slate-900 border-t border-slate-800">
+      <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="map-pin" class="w-7 h-7 text-amber-400 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">地址先確認</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">先搜尋候選地點，再由乘客選擇，避免直接拿錯第一筆定位結果。</p>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
-          <div class="bg-slate-800/40 border border-slate-700/30 p-6 sm:p-8 rounded-2xl text-center">
-            <i data-lucide="message-square" class="w-10 h-10 text-amber-500 mx-auto mb-4"></i>
-            <h3 class="font-bold text-white mb-2">LINE 客服對接</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">預約後由客服確認派車細節。</p>
-          </div>
-          <div class="bg-slate-800/40 border border-slate-700/30 p-6 sm:p-8 rounded-2xl text-center">
-            <i data-lucide="map" class="w-10 h-10 text-amber-500 mx-auto mb-4"></i>
-            <h3 class="font-bold text-white mb-2">路線距離試算</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">正式版本應使用 Google Routes API 計算開車距離。</p>
-          </div>
-          <div class="bg-slate-800/40 border border-slate-700/30 p-6 sm:p-8 rounded-2xl text-center">
-            <i data-lucide="coins" class="w-10 h-10 text-amber-500 mx-auto mb-4"></i>
-            <h3 class="font-bold text-white mb-2">一口價試算</h3>
-            <p class="text-slate-400 text-sm leading-relaxed">先試算、後確認，避免現場喊價。</p>
-          </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="route" class="w-7 h-7 text-amber-400 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">距離試算</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">POC 以 OSRM 試算開車距離，失敗時用直線距離推估。</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="shield-check" class="w-7 h-7 text-amber-400 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">不暴露 Google Key</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">此版本不使用 Google API。正式版再把 Routes 與報價搬到後端。</p>
         </div>
       </div>
     </section>
 
-    <section id="services" class="py-16 sm:py-24 bg-slate-950">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="bg-slate-800/30 border border-slate-800 rounded-2xl p-6 sm:p-8">
-          <span class="inline-block px-3 py-1 bg-slate-800 text-slate-300 text-xs font-semibold rounded-full mb-4">個人／家庭</span>
-          <h3 class="text-xl sm:text-2xl font-bold text-white mb-4">機場與市區接送</h3>
-          <p class="text-slate-400 text-sm leading-relaxed">適合送機、接機、飯店接送與點到點行程。</p>
-        </div>
-        <div class="bg-slate-800/30 border border-slate-800 rounded-2xl p-6 sm:p-8">
-          <span class="inline-block px-3 py-1 bg-slate-800 text-slate-300 text-xs font-semibold rounded-full mb-4">商務／貴賓</span>
-          <h3 class="text-xl sm:text-2xl font-bold text-white mb-4">商務接待服務</h3>
-          <p class="text-slate-400 text-sm leading-relaxed">適合企業差旅、外賓接待、跨廠區接送。</p>
-        </div>
+    <section id="services" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-slate-950 border-t border-slate-800">
+      <div class="max-w-5xl mx-auto text-center">
+        <p class="text-xs font-bold tracking-widest text-amber-500 uppercase mb-3">Services</p>
+        <h2 class="text-2xl sm:text-3xl font-black text-white mb-4">送機、接機、市區單程、臨時預約</h2>
+        <p class="text-sm sm:text-base text-slate-400 leading-relaxed max-w-3xl mx-auto">此頁仍是前端 POC。訂單建立、實際派車、付款與最終報價應由後端系統處理。</p>
       </div>
     </section>
 
-    <section id="fleet" class="py-16 sm:py-24 bg-slate-900">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-12">
-          <p class="text-xs font-semibold tracking-widest text-amber-500 uppercase mb-2">Our Fleet</p>
-          <h2 class="text-2xl sm:text-4xl font-bold text-white">車型選擇</h2>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div class="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6 text-center"><i data-lucide="car" class="w-12 h-12 text-amber-500 mx-auto mb-4"></i><h4 class="font-bold text-white">舒適四人座</h4><p class="text-sm text-slate-400 mt-2">1-3 位乘客</p></div>
-          <div class="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6 text-center"><i data-lucide="car-front" class="w-12 h-12 text-amber-500 mx-auto mb-4"></i><h4 class="font-bold text-white">尊榮進口車</h4><p class="text-sm text-slate-400 mt-2">商務與貴賓接待</p></div>
-          <div class="bg-slate-800/30 border border-slate-700/50 rounded-2xl p-6 text-center"><i data-lucide="bus" class="w-12 h-12 text-amber-500 mx-auto mb-4"></i><h4 class="font-bold text-white">七人座商旅</h4><p class="text-sm text-slate-400 mt-2">多人與大型行李</p></div>
-        </div>
+    <section id="fleet" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-slate-900 border-t border-slate-800">
+      <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4"><p class="font-bold text-white">舒適四人座</p><p class="text-xs text-slate-400 mt-1">一般接送</p></div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4"><p class="font-bold text-white">尊榮進口車</p><p class="text-xs text-slate-400 mt-1">加價 +500</p></div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4"><p class="font-bold text-white">七人座商旅</p><p class="text-xs text-slate-400 mt-1">加價 +300</p></div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4"><p class="font-bold text-white">七人座尊爵</p><p class="text-xs text-slate-400 mt-1">加價 +2000</p></div>
       </div>
     </section>
   </main>
 
-  <footer class="bg-slate-950 border-t border-slate-900 text-slate-500 py-12 text-xs sm:text-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      &copy; 2026 車旅所. All Rights Reserved.
-    </div>
-  </footer>
-
-  <div id="quoteModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto premium-scrollbar shadow-2xl relative">
-      <button id="closeModal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">&times;</button>
-      <div class="p-5 sm:p-8 space-y-5">
-        <div class="text-center">
+  <div id="quoteModal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-5 sm:p-6 space-y-5">
+        <div class="text-center relative">
+          <button id="closeModal" type="button" class="absolute right-0 top-0 text-slate-500 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
           <div class="w-14 h-14 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3"><i data-lucide="sparkles" class="w-7 h-7"></i></div>
           <h3 class="text-xl sm:text-2xl font-extrabold text-white">車資試算結果</h3>
           <p class="text-xs sm:text-sm text-slate-400 mt-1">目前為前端 POC 試算，正式版應由後端回傳價格。</p>
@@ -269,8 +251,8 @@
           正式版本需改成：前端送出 quote request → Python 後端查 Google Routes → 後端計價 → 回傳 quote_id。
         </div>
         <div class="flex flex-col sm:flex-row gap-3">
-          <button id="backButton" class="flex-1 py-3 border border-slate-700 text-slate-300 font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm">返回修改</button>
-          <button id="confirmButton" class="sm:w-2/3 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-lg transition-all text-sm">確認預約對接</button>
+          <button id="backButton" type="button" class="flex-1 py-3 border border-slate-700 text-slate-300 font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm">返回修改</button>
+          <button id="confirmButton" type="button" class="sm:w-2/3 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-lg transition-all text-sm">確認預約對接</button>
         </div>
       </div>
     </div>
@@ -285,34 +267,34 @@
     ];
 
     const airportPricing = {
-      '台北市': { 'TPE': 1100, 'TSA': 850 },
-      '臺北市': { 'TPE': 1100, 'TSA': 850 },
-      '文山區': { 'TPE': 1300, 'TSA': 900 },
-      '汐止區': { 'TPE': 1400, 'TSA': 1000 },
-      '新北市': { 'TPE': 1300, 'TSA': 1000 },
-      '桃園市': { 'TPE': 799 },
-      '新竹市': { 'TPE': 1800 },
-      '新竹縣': { 'TPE': 1900 }
+      '台北市': { TPE: 1100, TSA: 850 },
+      '臺北市': { TPE: 1100, TSA: 850 },
+      '文山區': { TPE: 1300, TSA: 900 },
+      '汐止區': { TPE: 1400, TSA: 1000 },
+      '新北市': { TPE: 1300, TSA: 1000 },
+      '桃園市': { TPE: 799 },
+      '新竹市': { TPE: 1800 },
+      '新竹縣': { TPE: 1900 }
     };
 
     let activeTab = 'airport-send';
     let lastDistanceKm = 0;
+    const selectedPlaces = { source: null, dest: null };
 
     const $ = (id) => document.getElementById(id);
 
     function initSelects() {
       for (const airport of airports) {
-        const opt1 = new Option(airport.text, airport.code);
-        const opt2 = new Option(airport.text, airport.code);
-        $('airportSource').appendChild(opt1);
-        $('airportDest').appendChild(opt2);
+        $('airportSource').appendChild(new Option(airport.text, airport.code));
+        $('airportDest').appendChild(new Option(airport.text, airport.code));
       }
       for (let i = 0; i < 24; i++) $('rideHour').appendChild(new Option(String(i).padStart(2, '0') + ' 時', String(i).padStart(2, '0')));
       for (const m of ['00', '15', '30', '45']) $('rideMinute').appendChild(new Option(m + ' 分', m));
       for (let i = 1; i <= 8; i++) $('passengers').appendChild(new Option(i + ' 人', String(i)));
       for (let i = 0; i <= 8; i++) $('luggage').appendChild(new Option(i + ' 件', String(i)));
-      $('rideDate').min = new Date().toISOString().slice(0, 10);
-      $('rideDate').value = new Date().toISOString().slice(0, 10);
+      const today = new Date().toISOString().slice(0, 10);
+      $('rideDate').min = today;
+      $('rideDate').value = today;
     }
 
     function setTab(tab) {
@@ -332,9 +314,9 @@
       const isAirportPickup = tab === 'airport-pickup';
       const isAirport = isAirportSend || isAirportPickup;
 
-      $('txtSource').classList.toggle('hidden', isAirportPickup);
+      $('sourceAddressControl').classList.toggle('hidden', isAirportPickup);
       $('airportSource').classList.toggle('hidden', !isAirportPickup);
-      $('txtDest').classList.toggle('hidden', isAirportSend);
+      $('destAddressControl').classList.toggle('hidden', isAirportSend);
       $('airportDest').classList.toggle('hidden', !isAirportSend);
       $('flightField').classList.toggle('hidden', !isAirport);
       $('airportAddons').classList.toggle('hidden', !isAirport);
@@ -355,17 +337,147 @@
       }
     }
 
-    async function geocodeAddress(address) {
-      const query = encodeURIComponent(address + ' 台灣');
-      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${query}&countrycodes=tw&limit=1&accept-language=zh-TW`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      const data = await res.json();
-      if (!data || !data[0]) throw new Error('地址無法定位，請輸入更完整的地址。');
-      return { lat: Number(data[0].lat), lon: Number(data[0].lon), label: data[0].display_name };
-    }
-
     function getAirportByCode(code) {
       return airports.find((a) => a.code === code);
+    }
+
+    function getAddressInput(type) {
+      return type === 'source' ? $('txtSource') : $('txtDest');
+    }
+
+    function getAddressStatus(type) {
+      return type === 'source' ? $('sourceAddressStatus') : $('destAddressStatus');
+    }
+
+    function getResultsBox(type) {
+      return type === 'source' ? $('sourceResults') : $('destResults');
+    }
+
+    function resetSelectedPlace(type, message = '地址已修改，請重新搜尋並選擇候選地點。') {
+      selectedPlaces[type] = null;
+      const status = getAddressStatus(type);
+      status.innerText = message;
+      status.className = 'text-xs text-amber-400';
+    }
+
+    function getCachedAddressResults(query) {
+      try {
+        const raw = localStorage.getItem('address-search:' + query);
+        if (!raw) return null;
+        const cached = JSON.parse(raw);
+        if (!cached.createdAt || Date.now() - cached.createdAt > 24 * 60 * 60 * 1000) return null;
+        return cached.results;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function setCachedAddressResults(query, results) {
+      try {
+        localStorage.setItem('address-search:' + query, JSON.stringify({ createdAt: Date.now(), results }));
+      } catch (error) {
+        console.warn('Unable to cache address results.', error);
+      }
+    }
+
+    async function fetchAddressCandidates(query) {
+      const normalizedQuery = query.trim();
+      const cached = getCachedAddressResults(normalizedQuery);
+      if (cached) return cached;
+
+      const searchText = normalizedQuery.includes('台灣') ? normalizedQuery : normalizedQuery + ' 台灣';
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        q: searchText,
+        countrycodes: 'tw',
+        limit: '5',
+        addressdetails: '1',
+        'accept-language': 'zh-TW'
+      });
+      const res = await fetch('https://nominatim.openstreetmap.org/search?' + params.toString(), {
+        headers: { Accept: 'application/json' }
+      });
+      if (!res.ok) throw new Error('地址搜尋服務暫時無法使用，請稍後再試。');
+      const data = await res.json();
+      setCachedAddressResults(normalizedQuery, data || []);
+      return data || [];
+    }
+
+    function renderAddressCandidates(type, results) {
+      const box = getResultsBox(type);
+      box.innerHTML = '';
+
+      if (!results.length) {
+        box.innerHTML = '<div class="p-3 text-sm text-slate-400">找不到候選地點，請改用更完整的地標或地址。</div>';
+        box.classList.remove('hidden');
+        return;
+      }
+
+      results.forEach((place, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full text-left p-3 hover:bg-slate-800 transition-colors';
+        button.innerHTML = `
+          <p class="text-sm font-bold text-slate-100">${place.name || place.display_name || '候選地點 ' + (index + 1)}</p>
+          <p class="text-xs text-slate-400 leading-relaxed mt-1">${place.display_name || ''}</p>
+          <p class="text-[11px] text-slate-500 mt-1">${place.type || 'place'} / ${place.class || 'unknown'}</p>
+        `;
+        button.addEventListener('click', () => selectAddressCandidate(type, place));
+        box.appendChild(button);
+      });
+
+      box.classList.remove('hidden');
+    }
+
+    function selectAddressCandidate(type, place) {
+      const input = getAddressInput(type);
+      const status = getAddressStatus(type);
+      const box = getResultsBox(type);
+
+      selectedPlaces[type] = {
+        lat: Number(place.lat),
+        lon: Number(place.lon),
+        label: place.display_name || input.value.trim(),
+        source: 'Nominatim selected candidate'
+      };
+      input.value = selectedPlaces[type].label;
+      status.innerText = '已選擇候選地點。若修改文字，需重新搜尋選擇。';
+      status.className = 'text-xs text-emerald-400';
+      box.classList.add('hidden');
+    }
+
+    async function searchAddress(type) {
+      const input = getAddressInput(type);
+      const button = type === 'source' ? $('searchSourceButton') : $('searchDestButton');
+      const status = getAddressStatus(type);
+      const query = input.value.trim();
+
+      if (query.length < 2) {
+        resetSelectedPlace(type, '請至少輸入 2 個字再搜尋。');
+        return;
+      }
+
+      button.disabled = true;
+      const originalText = button.innerText;
+      button.innerText = '搜尋中';
+      status.innerText = '搜尋候選地點中...';
+      status.className = 'text-xs text-slate-400';
+
+      try {
+        const results = await fetchAddressCandidates(query);
+        selectedPlaces[type] = null;
+        renderAddressCandidates(type, results);
+        status.innerText = results.length ? '請從下方候選清單選擇正確地點。' : '找不到候選地點，請輸入更完整的地址。';
+        status.className = results.length ? 'text-xs text-amber-400' : 'text-xs text-red-400';
+      } catch (error) {
+        selectedPlaces[type] = null;
+        getResultsBox(type).classList.add('hidden');
+        status.innerText = error.message || '地址搜尋失敗，請稍後再試。';
+        status.className = 'text-xs text-red-400';
+      } finally {
+        button.disabled = false;
+        button.innerText = originalText;
+      }
     }
 
     async function getPointFromForm(type) {
@@ -377,9 +489,8 @@
         const airport = getAirportByCode($('airportDest').value);
         return { ...airport, label: airport.text };
       }
-      const text = type === 'source' ? $('txtSource').value.trim() : $('txtDest').value.trim();
-      if (!text) throw new Error('請輸入完整起點與目的地。');
-      return await geocodeAddress(text);
+      if (!selectedPlaces[type]) throw new Error('請先搜尋並從地址選單中選擇正確地點。');
+      return selectedPlaces[type];
     }
 
     function haversineKm(a, b) {
@@ -472,7 +583,7 @@
         $('quoteModal').classList.remove('hidden');
         $('quoteModal').classList.add('flex');
       } catch (error) {
-        alert(error.message || '試算失敗，請改輸入更完整地址。');
+        alert(error.message || '試算失敗，請先搜尋並選擇正確地址。');
       } finally {
         button.disabled = false;
         button.innerHTML = originalText;
@@ -485,9 +596,27 @@
       $('quoteModal').classList.remove('flex');
     }
 
+    function bindAddressSearch(type) {
+      const input = getAddressInput(type);
+      const button = type === 'source' ? $('searchSourceButton') : $('searchDestButton');
+      input.addEventListener('input', () => {
+        if (selectedPlaces[type]) resetSelectedPlace(type);
+        getResultsBox(type).classList.add('hidden');
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          searchAddress(type);
+        }
+      });
+      button.addEventListener('click', () => searchAddress(type));
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       initSelects();
       setTab('airport-send');
+      bindAddressSearch('source');
+      bindAddressSearch('dest');
       document.querySelectorAll('.tab-button').forEach((btn) => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
       $('bookingForm').addEventListener('submit', handleQuote);
       $('closeModal').addEventListener('click', closeQuoteModal);
