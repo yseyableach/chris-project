@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>車旅所 Google 版 | 租賃車接送預約平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0f172a',
+              card: '#1e293b',
+              gold: '#d97706',
+              goldHover: '#b45309'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+    .pac-container { z-index: 99999 !important; border-radius: 12px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 18px 45px rgba(0,0,0,.35); }
+    .premium-scrollbar::-webkit-scrollbar { width: 5px; }
+    .premium-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, .5); border-radius: 99px; }
+    .premium-scrollbar::-webkit-scrollbar-thumb { background: rgba(217, 119, 6, .35); border-radius: 99px; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 antialiased">
+  <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+      <a href="./index.html" class="flex items-center gap-2">
+        <span class="text-xl sm:text-2xl font-bold tracking-widest text-white">車旅所<span class="text-amber-500">.</span></span>
+        <span class="hidden sm:inline-block px-2.5 py-0.5 text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded-full">Google Places 版</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium">
+        <a href="./index.html" class="text-slate-300 hover:text-amber-400 transition-colors">OSM 版</a>
+        <a href="#setup" class="text-slate-300 hover:text-amber-400 transition-colors">API 設定</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="relative min-h-[85vh] flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 bg-slate-950 overflow-hidden">
+      <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#d97706_1px,transparent_1px)] [background-size:16px_16px]"></div>
+      <div class="absolute -top-40 -right-40 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+
+      <div class="relative max-w-5xl w-full flex flex-col items-center gap-6 sm:gap-8">
+        <div class="text-center">
+          <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-2 sm:mb-4 px-2">
+            租賃車接送試算 <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-amber-500">Google 版</span>
+          </h1>
+          <p class="text-sm sm:text-base text-slate-400 max-w-3xl mx-auto px-4 leading-relaxed">
+            使用 Google Places Autocomplete 選擇地址，並用 Google Distance Matrix 試算開車距離。此頁是獨立 POC，不影響原本 OSM 版本。
+          </p>
+        </div>
+
+        <div id="keyWarning" class="w-full max-w-5xl rounded-xl border border-red-500/30 bg-red-950/30 p-4 text-sm text-red-100 leading-relaxed">
+          <p class="font-bold text-red-200 mb-1">尚未設定 Google Maps API Key</p>
+          <p>請把本頁底部 script 內的 <code class="bg-slate-950 px-1 rounded">YOUR_GOOGLE_MAPS_API_KEY</code> 換成自己的 key，並限制 HTTP referrer 與 API 範圍。</p>
+        </div>
+
+        <div class="w-full bg-slate-800/80 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-visible">
+          <div class="p-5 sm:p-8">
+            <form id="bookingForm" class="space-y-5 sm:space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                <div>
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">出發地址</label>
+                  <input type="text" id="txtSource" placeholder="例：台北市內湖區麗山街63號、麗山國中" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+                  <p id="sourceStatus" class="text-xs text-slate-500 mt-2">請從 Google 候選地址選擇一筆；若直接輸入完整地址，系統會嘗試自動定位。</p>
+                </div>
+                <div>
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">抵達機場</label>
+                  <select id="airportDest" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all"></select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
+                <div class="md:col-span-7">
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">乘車日期與時間</label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <input type="date" id="rideDate" required class="col-span-3 sm:col-span-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50" />
+                    <select id="rideHour" required class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"></select>
+                    <select id="rideMinute" required class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"></select>
+                  </div>
+                </div>
+                <div class="md:col-span-5">
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">預定車型</label>
+                  <select id="vehicleType" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    <option value="comfort_4">舒適四人座</option>
+                    <option value="luxury_import">尊榮進口車 +500</option>
+                    <option value="business_7">七人座商旅 +300</option>
+                    <option value="premium_7">七人座尊爵 +2000</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+                <div>
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">航班編號</label>
+                  <input type="text" id="flightNumber" placeholder="例：BR198" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50" />
+                </div>
+                <div>
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">搭乘人數</label>
+                  <select id="passengers" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"></select>
+                </div>
+                <div>
+                  <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">行李件數</label>
+                  <select id="luggage" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"></select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="flex items-center gap-3 bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" id="addonSign" class="accent-amber-500" />
+                  <span>舉牌服務 +200</span>
+                </label>
+                <label class="flex items-center gap-3 bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 text-sm text-slate-300">
+                  <input type="checkbox" id="addonSeat" class="accent-amber-500" />
+                  <span>兒童安全座椅 +300</span>
+                </label>
+              </div>
+
+              <div class="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-xs sm:text-sm text-blue-100/80 leading-relaxed">
+                此頁的 Google key 會出現在前端，正式使用時請限制網域與 API。正式商業報價仍建議由後端呼叫 Routes API 後回傳 quote_id。
+              </div>
+
+              <button id="quoteButton" type="submit" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-lg rounded-xl shadow-lg shadow-amber-900/20 transition-all flex items-center justify-center gap-2">
+                <i data-lucide="calculator" class="w-5 h-5"></i>
+                <span>Google 試算車資</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-slate-900 border-t border-slate-800">
+      <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="map-pin" class="w-7 h-7 text-blue-300 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">Places Autocomplete</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">地址欄直接顯示 Google 候選結果，支援地標與門牌。</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="route" class="w-7 h-7 text-blue-300 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">Distance Matrix</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">此 POC 用前端 DistanceMatrixService 取得開車距離。</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-5">
+          <i data-lucide="key-round" class="w-7 h-7 text-blue-300 mb-3"></i>
+          <h2 class="font-extrabold text-white text-lg mb-2">Key 限制</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">正式測試前，API key 應限制 GitHub Pages 網域與 Maps JavaScript API。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="quoteModal" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-5 sm:p-6 space-y-5">
+        <div class="text-center relative">
+          <button id="closeModal" type="button" class="absolute right-0 top-0 text-slate-500 hover:text-slate-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+          <div class="w-14 h-14 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3"><i data-lucide="sparkles" class="w-7 h-7"></i></div>
+          <h3 class="text-xl sm:text-2xl font-extrabold text-white">Google 試算結果</h3>
+          <p class="text-xs sm:text-sm text-slate-400 mt-1">目前仍是前端 POC，正式版應由後端回傳價格。</p>
+        </div>
+        <div class="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-2.5 text-sm">
+          <p><span class="text-slate-400">起點：</span><span id="resultSource" class="text-white font-semibold"></span></p>
+          <p><span class="text-slate-400">目的地：</span><span id="resultDest" class="text-white font-semibold"></span></p>
+          <p><span class="text-slate-400">距離：</span><span id="resultDistance" class="text-amber-400 font-bold"></span></p>
+          <p><span class="text-slate-400">時間：</span><span id="resultDuration" class="text-slate-200"></span></p>
+          <p><span class="text-slate-400">計價方式：</span><span id="resultMethod" class="text-slate-200"></span></p>
+        </div>
+        <div class="bg-amber-500/5 border border-amber-500/20 py-4 px-6 rounded-xl text-center">
+          <p class="text-xs text-amber-500/80 uppercase font-semibold tracking-wider">試算總費用</p>
+          <p id="resultPrice" class="text-4xl font-black text-amber-400 mt-1">NT$ --</p>
+        </div>
+        <div class="text-xs text-slate-400 bg-slate-950/30 p-3 rounded-lg border border-slate-800/50 leading-relaxed">
+          Google 前端 POC：Places Autocomplete + Distance Matrix。正式版建議：前端送 place_id → 後端查 Routes → 回傳 quote_id。
+        </div>
+        <button id="backButton" type="button" class="w-full py-3 border border-slate-700 text-slate-300 font-semibold rounded-lg hover:bg-slate-800 transition-all text-sm">返回修改</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
+
+    const airports = [
+      { code: 'TPE', text: '台灣桃園國際機場 (TPE)', lat: 25.0797, lng: 121.2342, placeQuery: '台灣桃園國際機場' },
+      { code: 'TSA', text: '台北松山機場 (TSA)', lat: 25.0697, lng: 121.5518, placeQuery: '台北松山機場' },
+      { code: 'RMQ', text: '台中清泉崗機場 (RMQ)', lat: 24.2636, lng: 120.6206, placeQuery: '台中清泉崗機場' },
+      { code: 'KHH', text: '高雄小港國際機場 (KHH)', lat: 22.5768, lng: 120.3500, placeQuery: '高雄小港國際機場' }
+    ];
+
+    const airportPricing = {
+      '台北市': { TPE: 1100, TSA: 850 },
+      '臺北市': { TPE: 1100, TSA: 850 },
+      '文山區': { TPE: 1300, TSA: 900 },
+      '汐止區': { TPE: 1400, TSA: 1000 },
+      '新北市': { TPE: 1300, TSA: 1000 },
+      '桃園市': { TPE: 799 },
+      '新竹市': { TPE: 1800 },
+      '新竹縣': { TPE: 1900 }
+    };
+
+    const $ = (id) => document.getElementById(id);
+    let selectedSourcePlace = null;
+    let autocomplete = null;
+    let geocoder = null;
+    let distanceService = null;
+
+    function initSelects() {
+      for (const airport of airports) $('airportDest').appendChild(new Option(airport.text, airport.code));
+      for (let i = 0; i < 24; i++) $('rideHour').appendChild(new Option(String(i).padStart(2, '0') + ' 時', String(i).padStart(2, '0')));
+      for (const m of ['00', '15', '30', '45']) $('rideMinute').appendChild(new Option(m + ' 分', m));
+      for (let i = 1; i <= 8; i++) $('passengers').appendChild(new Option(i + ' 人', String(i)));
+      for (let i = 0; i <= 8; i++) $('luggage').appendChild(new Option(i + ' 件', String(i)));
+      const today = new Date().toISOString().slice(0, 10);
+      $('rideDate').min = today;
+      $('rideDate').value = today;
+    }
+
+    function setSourceStatus(message, className = 'text-xs text-slate-500 mt-2') {
+      $('sourceStatus').innerText = message;
+      $('sourceStatus').className = className;
+    }
+
+    function getAirportByCode(code) {
+      return airports.find((a) => a.code === code);
+    }
+
+    function initGoogleMaps() {
+      geocoder = new google.maps.Geocoder();
+      distanceService = new google.maps.DistanceMatrixService();
+      autocomplete = new google.maps.places.Autocomplete($('txtSource'), {
+        componentRestrictions: { country: 'tw' },
+        fields: ['place_id', 'name', 'formatted_address', 'geometry', 'address_components'],
+        types: ['geocode', 'establishment']
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place || !place.geometry || !place.geometry.location) {
+          selectedSourcePlace = null;
+          setSourceStatus('無法取得此地點座標，請改選其他候選地址。', 'text-xs text-red-400 mt-2');
+          return;
+        }
+        selectedSourcePlace = normalizeGooglePlace(place);
+        $('txtSource').value = selectedSourcePlace.label;
+        setSourceStatus('已選擇 Google 候選地址。若修改文字，系統會重新定位。', 'text-xs text-emerald-400 mt-2');
+      });
+
+      $('txtSource').addEventListener('input', () => {
+        selectedSourcePlace = null;
+        setSourceStatus('地址已修改，請選擇 Google 候選地址，或直接按試算讓系統定位。', 'text-xs text-amber-400 mt-2');
+      });
+
+      $('keyWarning').classList.add('hidden');
+    }
+
+    function handleGoogleMapsError() {
+      $('keyWarning').classList.remove('hidden');
+      setSourceStatus('Google Maps 尚未載入。請先設定有效 API key。', 'text-xs text-red-400 mt-2');
+    }
+
+    function normalizeGooglePlace(place) {
+      return {
+        placeId: place.place_id || null,
+        name: place.name || '',
+        label: place.formatted_address || place.name || $('txtSource').value.trim(),
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+        addressComponents: place.address_components || []
+      };
+    }
+
+    function geocodeTypedSource() {
+      const address = $('txtSource').value.trim();
+      if (!address) return Promise.reject(new Error('請輸入出發地址。'));
+      if (!geocoder) return Promise.reject(new Error('Google Maps 尚未載入，請確認 API key。'));
+
+      setSourceStatus('正在用 Google 定位輸入地址...', 'text-xs text-slate-400 mt-2');
+      return new Promise((resolve, reject) => {
+        geocoder.geocode({ address, componentRestrictions: { country: 'TW' } }, (results, status) => {
+          if (status !== 'OK' || !results || !results[0]) {
+            reject(new Error('Google 無法定位此地址，請改選候選地址或輸入更完整地址。'));
+            return;
+          }
+          const place = results[0];
+          const resolved = normalizeGooglePlace(place);
+          selectedSourcePlace = resolved;
+          $('txtSource').value = resolved.label;
+          setSourceStatus('已用 Google 自動定位輸入地址。若位置不對，請改選候選地址。', 'text-xs text-emerald-400 mt-2');
+          resolve(resolved);
+        });
+      });
+    }
+
+    async function getSourcePlace() {
+      if (selectedSourcePlace) return selectedSourcePlace;
+      return await geocodeTypedSource();
+    }
+
+    function getDistanceByGoogle(source, destAirport) {
+      if (!distanceService) return Promise.reject(new Error('Google Maps 尚未載入，請確認 API key。'));
+      return new Promise((resolve, reject) => {
+        distanceService.getDistanceMatrix({
+          origins: [{ lat: source.lat, lng: source.lng }],
+          destinations: [{ lat: destAirport.lat, lng: destAirport.lng }],
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.METRIC,
+          region: 'TW'
+        }, (response, status) => {
+          if (status !== 'OK') {
+            reject(new Error('Google 距離試算失敗：' + status));
+            return;
+          }
+          const element = response.rows?.[0]?.elements?.[0];
+          if (!element || element.status !== 'OK') {
+            reject(new Error('Google 無法計算此路線距離。'));
+            return;
+          }
+          resolve({
+            distanceKm: element.distance.value / 1000,
+            distanceText: element.distance.text,
+            durationText: element.duration.text,
+            method: 'Google Distance Matrix driving route'
+          });
+        });
+      });
+    }
+
+    function detectZone(text) {
+      if (text.includes('文山')) return '文山區';
+      if (text.includes('汐止')) return '汐止區';
+      if (text.includes('台北')) return '台北市';
+      if (text.includes('臺北')) return '臺北市';
+      if (text.includes('新北')) return '新北市';
+      if (text.includes('桃園')) return '桃園市';
+      if (text.includes('新竹市')) return '新竹市';
+      if (text.includes('新竹縣')) return '新竹縣';
+      return null;
+    }
+
+    function calculatePrice(sourceLabel, airportCode, distanceKm) {
+      const vehicleSurcharge = {
+        comfort_4: 0,
+        luxury_import: 500,
+        business_7: 300,
+        premium_7: 2000
+      }[$('vehicleType').value] ?? 0;
+      const addonPrice = ($('addonSign').checked ? 200 : 0) + ($('addonSeat').checked ? 300 : 0);
+      let basePrice = Math.max(Math.round(distanceKm * 20), 799);
+      let pricingMethod = '距離計價：max(round(distance_km × 20), 799)';
+      const zone = detectZone(sourceLabel);
+      if (zone && airportPricing[zone] && airportPricing[zone][airportCode]) {
+        basePrice = airportPricing[zone][airportCode];
+        pricingMethod = `機場固定價目表：${zone} ⇄ ${airportCode}`;
+      }
+      return {
+        totalPrice: basePrice + vehicleSurcharge + addonPrice,
+        pricingMethod
+      };
+    }
+
+    async function handleQuote(event) {
+      event.preventDefault();
+      const button = $('quoteButton');
+      const originalText = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-2 border-slate-950 border-t-transparent"></span><span>Google 定位與試算中...</span>';
+
+      try {
+        const source = await getSourcePlace();
+        const destAirport = getAirportByCode($('airportDest').value);
+        const route = await getDistanceByGoogle(source, destAirport);
+        const quote = calculatePrice(source.label, destAirport.code, route.distanceKm);
+
+        $('resultSource').innerText = source.label;
+        $('resultDest').innerText = destAirport.text;
+        $('resultDistance').innerText = route.distanceText || `${route.distanceKm.toFixed(1)} 公里`;
+        $('resultDuration').innerText = route.durationText;
+        $('resultMethod').innerText = quote.pricingMethod + ' / ' + route.method;
+        $('resultPrice').innerText = `NT$ ${quote.totalPrice.toLocaleString()}`;
+        $('quoteModal').classList.remove('hidden');
+        $('quoteModal').classList.add('flex');
+      } catch (error) {
+        alert(error.message || 'Google 試算失敗，請確認地址或 API key。');
+      } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+        lucide.createIcons();
+      }
+    }
+
+    function closeQuoteModal() {
+      $('quoteModal').classList.add('hidden');
+      $('quoteModal').classList.remove('flex');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initSelects();
+      $('bookingForm').addEventListener('submit', handleQuote);
+      $('closeModal').addEventListener('click', closeQuoteModal);
+      $('backButton').addEventListener('click', closeQuoteModal);
+      lucide.createIcons();
+
+      if (GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
+        $('keyWarning').classList.remove('hidden');
+      }
+    });
+  </script>
+
+  <script>
+    window.initGoogleMaps = initGoogleMaps;
+    window.gm_authFailure = handleGoogleMapsError;
+  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initGoogleMaps" onerror="handleGoogleMapsError()"></script>
+</body>
+</html>
