@@ -1,203 +1,132 @@
 # chris-project
 
-車旅所接送車資試算網站。前端是靜態 HTML，Google 地點搜尋與開車距離試算都走 Netlify Functions，Google Maps API key 不會出現在前端、瀏覽器儲存空間或 GitHub repo。
+這是一個「車旅所」接送車資試算頁。目標是讓使用者輸入出發地、選擇抵達機場和車型後，可以估算接送距離與價格。
 
-## 一句話版本
-
-使用者輸入出發地，網站先讓使用者選 Google 候選地點，再由後端用 Google Routes 算開車距離和車資。
+目前主要測試頁：
 
 ```text
-Browser
-  -> /api/places/search
-  -> /api/quote
-Netlify Functions
-  -> Google Places API
-  -> Google Routes API
+https://flourishing-narwhal-f3b2fe.netlify.app/google.html
 ```
 
-## 重要安全原則
+## 現在可以做什麼
 
-- Google key 只放在 Netlify Environment Variables。
-- 不要把 key 寫進 `index.html`、`google.html` 或任何前端 JS。
-- 不要把 key commit 到 GitHub。
-- 不要讓前端直接呼叫 Google Maps API。
-- 前端送來的價格不可信，正式價格必須由後端重新計算。
+- 輸入出發地址或地標。
+- 顯示 Google 找到的候選地點。
+- 讓使用者選擇正確地點。
+- 選擇抵達機場。
+- 選擇車型與加購項目。
+- 用 Google 的開車路線距離估算價格。
 
-目前使用的 env key：
+## 為什麼要用 Google 版
+
+地址搜尋如果只靠免費地圖資料，台灣地址有時會找不到或定位不準。Google 版的目標是讓使用者更容易選到正確地點，距離也比較接近實際開車路線。
+
+## API key 安全
+
+Google Maps API key 不會寫在網頁裡，也不會放在 GitHub。
+
+目前做法是：
+
+```text
+使用者的瀏覽器
+  -> 呼叫我們自己的網站
+  -> 網站後端再去問 Google
+```
+
+所以一般使用者打開網頁時，看不到真正的 Google key。
+
+## 誰需要看哪份文件
+
+- `README.md`：給一般人、非工程背景的人快速理解這個專案。
+- `AGENTS.md`：給 Jay 和協助改程式的 AI / 工程人員看，裡面會放比較細的技術規則。
+
+如果只是想知道這個網站在做什麼，看這份 README 就好。
+
+## 如何試用
+
+打開：
+
+```text
+https://flourishing-narwhal-f3b2fe.netlify.app/google.html
+```
+
+測試流程：
+
+1. 在「出發地址」輸入地點，例如：台北101。
+2. 從 Google 候選地點中選一個正確的。
+3. 選擇抵達機場。
+4. 選擇車型。
+5. 看下方試算結果。
+
+如果搜尋不到地點，通常不是你操作錯，而是 Google key、Google API 或 Netlify 設定需要檢查。
+
+## 目前部署在哪裡
+
+網站部署在 Netlify：
+
+```text
+https://flourishing-narwhal-f3b2fe.netlify.app/
+```
+
+程式碼放在 GitHub：
+
+```text
+https://github.com/yseyableach/chris-project
+```
+
+每次 GitHub 更新後，Netlify 會重新部署網站。
+
+## Netlify 需要設定什麼
+
+Netlify 需要放一個 Google Maps key。這個值只放在 Netlify 後台，不要貼到 GitHub。
+
+變數名稱是：
 
 ```text
 GOOGLE_MAPS_API_KEY
 ```
 
-## 主要檔案
+這個變數至少要套用到：
 
-```text
-index.html
-  OSM / Nominatim POC 版。
+- Production
+- Functions
 
-google.html
-  Google 後端版 UI。前端只呼叫自己的 /api，不碰 Google key。
+改完 Netlify 設定後，要重新部署一次網站。
 
-netlify/functions/places-search.mjs
-  POST /api/places/search
-  使用 Google Places API 搜尋候選地點。
+## Google Cloud 需要開什麼
 
-netlify/functions/quote.mjs
-  POST /api/quote
-  使用 Google Routes API 計算開車距離，再計算車資。
+Google Cloud 的 key 需要可以使用：
 
-netlify.toml
-  設定 Netlify publish directory、functions directory、API redirects。
+- Places API
+- Routes API
 
-scripts/dev-server.mjs
-  本機模擬 Netlify Functions，方便 local 測試完整流程。
-```
+也需要確認 Google Cloud 專案有啟用 billing。
 
-## Local 測試
+## 常見狀況
 
-需要一把 server-side Google Maps key：
+### 網頁打開了，但搜尋地點失敗
 
-- Application restrictions: none
-- API restrictions: Places API, Routes API
-- Billing enabled
+通常是 Google key、Places API、Netlify 環境變數或 billing 設定還沒好。
 
-啟動本機 server：
+### 地點可以選，但距離算不出來
 
-```bash
-GOOGLE_MAPS_API_KEY='<server-key>' node scripts/dev-server.mjs
-```
+通常是 Routes API 沒有啟用，或 Google key 沒有允許 Routes API。
 
-打開：
+### Netlify 後台改了 key，但網站還是不行
 
-```text
-http://127.0.0.1:8080/google.html
-```
+改完環境變數後，通常需要重新部署一次。
 
-不要用 `file://` 開 `google.html`。API routes 只有透過 local server 或 Netlify 才會動。
+### 直接打開電腦裡的 `google.html` 不會動
 
-## Netlify 設定
+這是正常的。Google 版需要透過 Netlify 或本機 server 才能正常呼叫後端。
 
-Project environment variable：
+## 目前還不是正式產品
 
-```text
-GOOGLE_MAPS_API_KEY=<server-key>
-```
+這個網站目前是測試版，重點是先確認：
 
-建議設定：
+- Google 地址搜尋可以用。
+- 使用者可以選到正確地點。
+- 開車距離可以算出來。
+- 車資邏輯可以跑通。
 
-```text
-Scope: Functions 至少要有
-Context: Production 至少要有
-```
-
-Netlify build 設定：
-
-```text
-Build command: empty
-Publish directory: .
-Functions directory: netlify/functions
-```
-
-更新 env 後要重新部署：
-
-```text
-Deploys -> Trigger deploy -> Deploy site
-```
-
-## Google Cloud 設定
-
-同一把 server key 需要：
-
-```text
-Application restrictions: None
-API restrictions:
-  - Places API
-  - Routes API
-```
-
-注意：目前 `places-search.mjs` 使用的是舊版 Places Text Search endpoint，對應 Google Cloud 裡的 `Places API`。如果未來改成 Places API New endpoint，就要確認 Cloud Console 有啟用並允許對應的新 API。
-
-## API
-
-### `POST /api/places/search`
-
-輸入：
-
-```json
-{
-  "query": "台北101"
-}
-```
-
-輸出：
-
-```json
-{
-  "candidates": [
-    {
-      "place_id": "google_place_id",
-      "name": "Taipei 101",
-      "address": "Taipei 101, No. 7...",
-      "lat": 25.033976,
-      "lng": 121.5645389
-    }
-  ]
-}
-```
-
-### `POST /api/quote`
-
-輸入：
-
-```json
-{
-  "origin": {
-    "place_id": "google_place_id",
-    "name": "Taipei 101",
-    "address": "Taipei 101, No. 7...",
-    "lat": 25.033976,
-    "lng": 121.5645389
-  },
-  "destinationAirportCode": "TPE",
-  "vehicleType": "comfort_4",
-  "addons": {
-    "sign": false,
-    "childSeat": false
-  }
-}
-```
-
-輸出：
-
-```json
-{
-  "quoteId": "Q20260701ABCDE",
-  "distanceKm": 50.4,
-  "distanceMeters": 50427,
-  "duration": "2452s",
-  "basePrice": 1100,
-  "vehicleSurcharge": 0,
-  "addonPrice": 0,
-  "totalPrice": 1100,
-  "pricingMethod": "機場固定價目表：臺北市 ⇄ TPE",
-  "routeMethod": "Google Routes API driving route"
-}
-```
-
-## 常見問題
-
-### `Server Google Maps key is not configured.`
-
-Netlify Function 讀不到 `GOOGLE_MAPS_API_KEY`。確認 env 有填 Production、Scope 包含 Functions，然後重新 deploy。
-
-### `PERMISSION_DENIED` 或 `REQUEST_DENIED`
-
-Google key 的 API restriction、Application restriction、API 啟用狀態或 billing 有問題。先確認 Places API / Routes API 已啟用，且 key 允許這兩個 API。
-
-### Local 可以，Netlify 不行
-
-通常是 Netlify env 沒填 Production，或填完後沒有重新 deploy。
-
-### `file://` 開頁面不動
-
-正常。請用 `http://127.0.0.1:8080/google.html`。
+正式上線前，價格規則、錯誤提示、訂單流程和付款流程都還可以再整理。
