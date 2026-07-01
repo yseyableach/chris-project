@@ -31,18 +31,13 @@
             租賃車接送試算 <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-amber-500">Google 版</span>
           </h1>
           <p class="text-sm sm:text-base text-slate-400 max-w-3xl mx-auto px-4 leading-relaxed">
-            API key 不會寫進 GitHub。請在本頁輸入 key，系統只會存在你的瀏覽器 localStorage。
+            輸入出發地並選擇候選結果，系統會用後端路線服務試算車資。
           </p>
         </div>
 
-        <div id="keyPanel" class="w-full bg-slate-800/80 border border-blue-500/30 rounded-2xl p-5 sm:p-6 shadow-2xl">
-          <label class="block text-sm sm:text-base font-bold text-slate-300 mb-2">Google Maps API Key</label>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input id="apiKeyInput" type="password" placeholder="通常是 AIza... 開頭" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
-            <button id="saveKeyButton" type="button" class="px-5 py-3 bg-blue-500 hover:bg-blue-400 text-slate-950 font-black rounded-lg">載入 Google</button>
-            <button id="clearKeyButton" type="button" class="px-5 py-3 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold rounded-lg">清除</button>
-          </div>
-          <p id="keyStatus" class="text-xs text-slate-400 mt-2">請先輸入 Google Maps Browser key。需要啟用 Maps JavaScript API、Places API、Distance Matrix API。</p>
+        <div id="serverPanel" class="w-full bg-slate-800/80 border border-blue-500/30 rounded-2xl p-5 sm:p-6 shadow-2xl">
+          <label class="block text-sm sm:text-base font-bold text-slate-300 mb-2">後端連線</label>
+          <p id="serverStatus" class="text-sm text-emerald-300">Netlify Functions 已接管路線與報價。</p>
         </div>
 
         <div class="w-full bg-slate-800/80 border border-slate-700/50 rounded-2xl shadow-2xl backdrop-blur-md overflow-visible">
@@ -51,8 +46,12 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                 <div>
                   <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">出發地址</label>
-                  <input type="text" id="txtSource" placeholder="例：台北市內湖區麗山街63號、麗山國中" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
-                  <p id="sourceStatus" class="text-xs text-slate-500 mt-2">載入 Google 後，請從候選地址選擇，或直接按試算讓系統定位。</p>
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="txtSource" placeholder="例：台北市內湖區麗山街63號、麗山國中" autocomplete="off" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-3 text-base text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+                    <button id="searchSourceButton" type="button" class="px-5 py-3 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-bold text-slate-100 transition-all">搜尋候選</button>
+                  </div>
+                  <p id="sourceStatus" class="text-xs text-slate-500 mt-2">請先搜尋並選擇候選地點。</p>
+                  <div id="sourceResults" class="hidden mt-3 bg-slate-950 border border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-800 max-h-64 overflow-y-auto"></div>
                 </div>
                 <div>
                   <label class="block text-sm sm:text-base font-bold text-slate-300 mb-1.5 sm:mb-2">抵達機場</label>
@@ -133,23 +132,9 @@
       { code: 'KHH', text: '高雄小港國際機場 (KHH)', lat: 22.5768, lng: 120.3500 }
     ];
 
-    const airportPricing = {
-      '台北市': { TPE: 1100, TSA: 850 },
-      '臺北市': { TPE: 1100, TSA: 850 },
-      '文山區': { TPE: 1300, TSA: 900 },
-      '汐止區': { TPE: 1400, TSA: 1000 },
-      '新北市': { TPE: 1300, TSA: 1000 },
-      '桃園市': { TPE: 799 },
-      '新竹市': { TPE: 1800 },
-      '新竹縣': { TPE: 1900 }
-    };
-
     const $ = (id) => document.getElementById(id);
     let selectedSourcePlace = null;
-    let autocomplete = null;
-    let geocoder = null;
-    let distanceService = null;
-    let mapsReady = false;
+    let sourceComposing = false;
 
     function initSelects() {
       for (const airport of airports) $('airportDest').appendChild(new Option(airport.text, airport.code));
@@ -160,9 +145,9 @@
       $('rideDate').value = today;
     }
 
-    function setKeyStatus(message, className = 'text-xs text-slate-400 mt-2') {
-      $('keyStatus').innerText = message;
-      $('keyStatus').className = className;
+    function setServerStatus(message, className = 'text-sm text-emerald-300') {
+      $('serverStatus').innerText = message;
+      $('serverStatus').className = className;
     }
 
     function setSourceStatus(message, className = 'text-xs text-slate-500 mt-2') {
@@ -170,175 +155,142 @@
       $('sourceStatus').className = className;
     }
 
-    function getAirportByCode(code) {
-      return airports.find((a) => a.code === code);
+    function setQuoteEnabled(enabled) {
+      const button = $('quoteButton');
+      button.disabled = !enabled;
+      button.classList.toggle('opacity-60', !enabled);
+      button.classList.toggle('cursor-not-allowed', !enabled);
     }
 
-    function loadGoogleMaps(key) {
-      if (!key) {
-        setKeyStatus('請輸入 Google Maps API key。', 'text-xs text-red-400 mt-2');
+    async function apiPost(path, payload) {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `API request failed: ${response.status}`);
+      }
+      return data;
+    }
+
+    function renderCandidates(candidates) {
+      const results = $('sourceResults');
+      results.innerHTML = '';
+
+      if (!candidates.length) {
+        results.classList.add('hidden');
+        setSourceStatus('找不到候選地點，請輸入更完整地址。', 'text-xs text-red-400 mt-2');
         return;
       }
-      if (!key.startsWith('AIza')) {
-        setKeyStatus('這串不像 Google Maps Browser key。Google key 通常是 AIza... 開頭。仍可嘗試載入。', 'text-xs text-amber-400 mt-2');
-      } else {
-        setKeyStatus('正在載入 Google Maps...', 'text-xs text-slate-400 mt-2');
+
+      for (const candidate of candidates) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'w-full text-left px-4 py-3 hover:bg-slate-800 transition-colors';
+
+        const name = document.createElement('p');
+        name.className = 'text-sm font-bold text-slate-100';
+        name.textContent = candidate.name || candidate.address;
+
+        const address = document.createElement('p');
+        address.className = 'text-xs text-slate-400 mt-1';
+        address.textContent = candidate.address;
+
+        button.append(name, address);
+        button.addEventListener('click', () => selectSourceCandidate(candidate));
+        results.appendChild(button);
       }
-      localStorage.setItem('google-maps-browser-key', key);
-      const oldScript = document.getElementById('googleMapsScript');
-      if (oldScript) oldScript.remove();
-      delete window.google;
-      mapsReady = false;
-      const script = document.createElement('script');
-      script.id = 'googleMapsScript';
-      script.async = true;
-      script.defer = true;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=initGoogleMaps`;
-      script.onerror = handleGoogleMapsError;
-      document.head.appendChild(script);
+
+      results.classList.remove('hidden');
+      setSourceStatus('請從候選地點中選擇一筆。', 'text-xs text-amber-400 mt-2');
     }
 
-    function initGoogleMaps() {
-      mapsReady = true;
-      geocoder = new google.maps.Geocoder();
-      distanceService = new google.maps.DistanceMatrixService();
-      autocomplete = new google.maps.places.Autocomplete($('txtSource'), {
-        componentRestrictions: { country: 'tw' },
-        fields: ['place_id', 'name', 'formatted_address', 'geometry', 'address_components'],
-        types: ['geocode', 'establishment']
-      });
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (!place || !place.geometry || !place.geometry.location) {
-          selectedSourcePlace = null;
-          setSourceStatus('無法取得此地點座標，請改選其他候選地址。', 'text-xs text-red-400 mt-2');
-          return;
-        }
-        selectedSourcePlace = normalizeGooglePlace(place);
-        $('txtSource').value = selectedSourcePlace.label;
-        setSourceStatus('已選擇 Google 候選地址。若修改文字，系統會重新定位。', 'text-xs text-emerald-400 mt-2');
-      });
-      setKeyStatus('Google Maps 已載入，可以測試地址。', 'text-xs text-emerald-400 mt-2');
+    function selectSourceCandidate(candidate) {
+      selectedSourcePlace = candidate;
+      $('txtSource').value = candidate.address || candidate.name;
+      $('sourceResults').classList.add('hidden');
+      $('sourceResults').innerHTML = '';
+      setSourceStatus('已選擇候選地點，可以試算。', 'text-xs text-emerald-400 mt-2');
+      setQuoteEnabled(true);
     }
 
-    function handleGoogleMapsError() {
-      mapsReady = false;
-      setKeyStatus('Google Maps 載入失敗。可能是 key 無效、API 未啟用、billing 未啟用，或 referrer 限制不符。', 'text-xs text-red-400 mt-2');
-    }
-
-    function normalizeGooglePlace(place) {
-      return {
-        placeId: place.place_id || null,
-        label: place.formatted_address || place.name || $('txtSource').value.trim(),
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng()
-      };
-    }
-
-    function geocodeTypedSource() {
-      const address = $('txtSource').value.trim();
-      if (!address) return Promise.reject(new Error('請輸入出發地址。'));
-      if (!mapsReady || !geocoder) return Promise.reject(new Error('Google Maps 尚未載入，請先輸入有效 API key。'));
-      setSourceStatus('正在用 Google 定位輸入地址...', 'text-xs text-slate-400 mt-2');
-      return new Promise((resolve, reject) => {
-        geocoder.geocode({ address, componentRestrictions: { country: 'TW' } }, (results, status) => {
-          if (status !== 'OK' || !results || !results[0]) {
-            reject(new Error('Google 無法定位此地址，請改選候選地址或輸入更完整地址。'));
-            return;
-          }
-          selectedSourcePlace = normalizeGooglePlace(results[0]);
-          $('txtSource').value = selectedSourcePlace.label;
-          setSourceStatus('已用 Google 自動定位輸入地址。若位置不對，請改選候選地址。', 'text-xs text-emerald-400 mt-2');
-          resolve(selectedSourcePlace);
-        });
-      });
-    }
-
-    async function getSourcePlace() {
-      if (selectedSourcePlace) return selectedSourcePlace;
-      return await geocodeTypedSource();
-    }
-
-    function getDistanceByGoogle(source, destAirport) {
-      if (!mapsReady || !distanceService) return Promise.reject(new Error('Google Maps 尚未載入，請先輸入有效 API key。'));
-      return new Promise((resolve, reject) => {
-        distanceService.getDistanceMatrix({
-          origins: [{ lat: source.lat, lng: source.lng }],
-          destinations: [{ lat: destAirport.lat, lng: destAirport.lng }],
-          travelMode: google.maps.TravelMode.DRIVING,
-          unitSystem: google.maps.UnitSystem.METRIC,
-          region: 'TW'
-        }, (response, status) => {
-          if (status !== 'OK') {
-            reject(new Error('Google 距離試算失敗：' + status));
-            return;
-          }
-          const element = response.rows?.[0]?.elements?.[0];
-          if (!element || element.status !== 'OK') {
-            reject(new Error('Google 無法計算此路線距離。'));
-            return;
-          }
-          resolve({
-            distanceKm: element.distance.value / 1000,
-            distanceText: element.distance.text,
-            durationText: element.duration.text,
-            method: 'Google Distance Matrix driving route'
-          });
-        });
-      });
-    }
-
-    function detectZone(text) {
-      if (text.includes('文山')) return '文山區';
-      if (text.includes('汐止')) return '汐止區';
-      if (text.includes('台北')) return '台北市';
-      if (text.includes('臺北')) return '臺北市';
-      if (text.includes('新北')) return '新北市';
-      if (text.includes('桃園')) return '桃園市';
-      if (text.includes('新竹市')) return '新竹市';
-      if (text.includes('新竹縣')) return '新竹縣';
-      return null;
-    }
-
-    function calculatePrice(sourceLabel, airportCode, distanceKm) {
-      const vehicleSurcharge = {
-        comfort_4: 0,
-        luxury_import: 500,
-        business_7: 300,
-        premium_7: 2000
-      }[$('vehicleType').value] ?? 0;
-      const addonPrice = ($('addonSign').checked ? 200 : 0) + ($('addonSeat').checked ? 300 : 0);
-      let basePrice = Math.max(Math.round(distanceKm * 20), 799);
-      let pricingMethod = '距離計價：max(round(distance_km × 20), 799)';
-      const zone = detectZone(sourceLabel);
-      if (zone && airportPricing[zone] && airportPricing[zone][airportCode]) {
-        basePrice = airportPricing[zone][airportCode];
-        pricingMethod = `機場固定價目表：${zone} ⇄ ${airportCode}`;
+    async function searchSource() {
+      const query = $('txtSource').value.trim();
+      if (query.length < 2) {
+        setSourceStatus('請輸入至少 2 個字的地點或地址。', 'text-xs text-red-400 mt-2');
+        return;
       }
-      return { totalPrice: basePrice + vehicleSurcharge + addonPrice, pricingMethod };
+
+      selectedSourcePlace = null;
+      setQuoteEnabled(false);
+      const button = $('searchSourceButton');
+      const originalText = button.innerText;
+      button.disabled = true;
+      button.innerText = '搜尋中...';
+      setSourceStatus('正在搜尋候選地點...', 'text-xs text-slate-400 mt-2');
+
+      try {
+        const data = await apiPost('/api/places/search', { query });
+        renderCandidates(data.candidates || []);
+        setServerStatus('後端搜尋完成。', 'text-sm text-emerald-300');
+      } catch (error) {
+        $('sourceResults').classList.add('hidden');
+        setSourceStatus(error.message || '搜尋候選地點失敗。', 'text-xs text-red-400 mt-2');
+        setServerStatus('後端搜尋失敗。', 'text-sm text-red-300');
+      } finally {
+        button.disabled = false;
+        button.innerText = originalText;
+      }
+    }
+
+    function formatDuration(duration) {
+      const seconds = Number(String(duration || '').replace('s', ''));
+      if (!Number.isFinite(seconds) || seconds <= 0) return '需人工確認';
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes} 分鐘`;
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      return rest ? `${hours} 小時 ${rest} 分鐘` : `${hours} 小時`;
     }
 
     async function handleQuote(event) {
       event.preventDefault();
+      if (!selectedSourcePlace) {
+        setSourceStatus('請先搜尋並選擇候選地點。', 'text-xs text-red-400 mt-2');
+        return;
+      }
+
       const button = $('quoteButton');
       const originalText = button.innerHTML;
       button.disabled = true;
-      button.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-2 border-slate-950 border-t-transparent"></span><span>Google 定位與試算中...</span>';
+      button.innerHTML = '<span class="animate-spin rounded-full h-5 w-5 border-2 border-slate-950 border-t-transparent"></span><span>後端試算中...</span>';
+
       try {
-        const source = await getSourcePlace();
-        const destAirport = getAirportByCode($('airportDest').value);
-        const route = await getDistanceByGoogle(source, destAirport);
-        const quote = calculatePrice(source.label, destAirport.code, route.distanceKm);
-        $('resultSource').innerText = source.label;
-        $('resultDest').innerText = destAirport.text;
-        $('resultDistance').innerText = route.distanceText || `${route.distanceKm.toFixed(1)} 公里`;
-        $('resultDuration').innerText = route.durationText;
-        $('resultMethod').innerText = quote.pricingMethod + ' / ' + route.method;
-        $('resultPrice').innerText = `NT$ ${quote.totalPrice.toLocaleString()}`;
+        const quote = await apiPost('/api/quote', {
+          origin: selectedSourcePlace,
+          destinationAirportCode: $('airportDest').value,
+          vehicleType: $('vehicleType').value,
+          addons: {
+            sign: $('addonSign').checked,
+            childSeat: $('addonSeat').checked
+          }
+        });
+
+        $('resultSource').innerText = quote.origin?.address || quote.origin?.name || selectedSourcePlace.address;
+        $('resultDest').innerText = quote.destination?.text || $('airportDest').selectedOptions[0].text;
+        $('resultDistance').innerText = `${Number(quote.distanceKm).toFixed(1)} 公里`;
+        $('resultDuration').innerText = formatDuration(quote.duration);
+        $('resultMethod').innerText = `${quote.pricingMethod} / ${quote.routeMethod}`;
+        $('resultPrice').innerText = `NT$ ${Number(quote.totalPrice).toLocaleString()}`;
         $('quoteModal').classList.remove('hidden');
         $('quoteModal').classList.add('flex');
+        setServerStatus(`報價 ${quote.quoteId} 已建立。`, 'text-sm text-emerald-300');
       } catch (error) {
-        alert(error.message || 'Google 試算失敗，請確認地址或 API key。');
+        setSourceStatus(error.message || '後端試算失敗，需人工確認。', 'text-xs text-red-400 mt-2');
+        setServerStatus('後端試算失敗。', 'text-sm text-red-300');
       } finally {
         button.disabled = false;
         button.innerHTML = originalText;
@@ -353,29 +305,35 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       initSelects();
+      setQuoteEnabled(false);
       $('bookingForm').addEventListener('submit', handleQuote);
       $('closeModal').addEventListener('click', closeQuoteModal);
       $('backButton').addEventListener('click', closeQuoteModal);
-      $('saveKeyButton').addEventListener('click', () => loadGoogleMaps($('apiKeyInput').value.trim()));
-      $('clearKeyButton').addEventListener('click', () => {
-        localStorage.removeItem('google-maps-browser-key');
-        $('apiKeyInput').value = '';
-        setKeyStatus('已清除瀏覽器內的 key。', 'text-xs text-slate-400 mt-2');
+      $('searchSourceButton').addEventListener('click', searchSource);
+      $('txtSource').addEventListener('compositionstart', () => {
+        sourceComposing = true;
+      });
+      $('txtSource').addEventListener('compositionend', () => {
+        sourceComposing = false;
+        selectedSourcePlace = null;
+        setQuoteEnabled(false);
+        setSourceStatus('地址已修改，請重新搜尋候選地點。', 'text-xs text-amber-400 mt-2');
       });
       $('txtSource').addEventListener('input', () => {
+        if (sourceComposing) return;
         selectedSourcePlace = null;
-        setSourceStatus('地址已修改，請選擇 Google 候選地址，或直接按試算讓系統定位。', 'text-xs text-amber-400 mt-2');
+        setQuoteEnabled(false);
+        $('sourceResults').classList.add('hidden');
+        setSourceStatus('地址已修改，請重新搜尋候選地點。', 'text-xs text-amber-400 mt-2');
       });
-      const storedKey = localStorage.getItem('google-maps-browser-key');
-      if (storedKey) {
-        $('apiKeyInput').value = storedKey;
-        loadGoogleMaps(storedKey);
-      }
+      $('txtSource').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !sourceComposing) {
+          event.preventDefault();
+          searchSource();
+        }
+      });
       lucide.createIcons();
     });
-
-    window.initGoogleMaps = initGoogleMaps;
-    window.gm_authFailure = handleGoogleMapsError;
   </script>
 </body>
 </html>

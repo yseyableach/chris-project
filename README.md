@@ -1,31 +1,56 @@
 # chris-project
 
-## Google Geocoding API POC
+租賃車接送試算網站。前端是靜態 HTML，Google 地點搜尋與開車距離試算都走 Netlify Functions，Google Maps API key 不會出現在前端 HTML、瀏覽器儲存空間或 GitHub repo。
 
-This repo includes a small Node.js script for testing Google Geocoding API without committing an API key.
+## Local development
 
-Run it with:
+Use a server-side Google Maps key:
+
+- Application restrictions: none
+- API restrictions: Places API, Routes API
+- Billing enabled
+
+Run the local Netlify-style server:
 
 ```bash
-GOOGLE_MAPS_API_KEY='<your-key>' node scripts/test-geocode.mjs 台北101
+GOOGLE_MAPS_API_KEY='<server-key>' node scripts/dev-server.mjs
 ```
 
-Expected successful output includes:
+Open:
 
-```json
-{
-  "httpStatus": 200,
-  "googleStatus": "OK",
-  "errorMessage": null,
-  "firstResult": {
-    "formattedAddress": "...",
-    "location": {
-      "lat": 25.0339639,
-      "lng": 121.5644722
-    },
-    "placeId": "..."
-  }
-}
+```text
+http://127.0.0.1:8080/google.html
 ```
 
-If the output says `API keys with referer restrictions cannot be used with this API`, the key's application restriction is not compatible with the Geocoding API web service. For this server-side style request, use either no application restriction for a temporary POC, or IP address restriction for a backend service.
+Do not open `google.html` through `file://`; API routes only work through the local server.
+
+## Netlify deploy
+
+Set this environment variable in Netlify:
+
+```text
+GOOGLE_MAPS_API_KEY=<server-key>
+```
+
+Netlify settings:
+
+```text
+Build command: empty
+Publish directory: .
+Functions directory: netlify/functions
+```
+
+`netlify.toml` already configures the function routes:
+
+- `/api/places/search`
+- `/api/quote`
+
+## API flow
+
+1. The browser calls `/api/places/search` with the user's typed location.
+2. The function calls Google Places API and returns candidates.
+3. The user selects one candidate.
+4. The browser calls `/api/quote`.
+5. The function calls Google Routes API, calculates pricing, and returns the quote.
+
+The frontend never receives the Google API key.
